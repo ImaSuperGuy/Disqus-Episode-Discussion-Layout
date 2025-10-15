@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Anime Episode Discussion Template Generator</title>
+  <style>
+    :root{ --bg:#000000; --panel:#0a0a0a; --panel-2:#0e0e0e; --text:#eaeaea; --muted:#a7a7a7; --accent:#7ab6ff; --accent-2:#4dd0e1; --danger:#ff6b6b; --radius:16px; }
+    *{box-sizing:border-box}
+    body{margin:0;background:#000;color:var(--text);font:16px/1.5 Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji","Segoe UI Emoji"}
+    a{color:var(--accent)}
+    .container{max-width:1100px;margin:24px auto;padding:0 16px}
+    header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+    header h1{font-weight:800;letter-spacing:.2px;font-size:24px;margin:0}
+    header .badge{font-size:12px;background:linear-gradient(135deg,var(--accent),var(--accent-2));padding:6px 10px;border-radius:999px;color:#0b0e1a;font-weight:700}
+    .grid{display:grid;grid-template-columns:360px 1fr;gap:16px}
+    @media (max-width:980px){.grid{grid-template-columns:1fr}}
+    .card{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid #141414;border-radius:var(--radius);padding:16px;box-shadow:0 20px 40px rgba(0,0,0,.35)}
+    .card h2{margin:0 0 10px;font-size:18px}
+    .sub{color:var(--muted);font-size:13px;margin-top:-4px;margin-bottom:12px}
+    .row{display:flex;gap:10px;align-items:center}
+    .row.wrap{flex-wrap:wrap}
+    .input{width:100%;background:#0b0b0b;border:1px solid #222;border-radius:12px;padding:10px 12px;color:var(--text);outline:none}
+    .input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(122,182,255,.15)}
+    .btn{appearance:none;border:0;border-radius:12px;padding:10px 12px;background:#141414;color:#fff;font-weight:700;cursor:pointer;transition:.2s;border:1px solid #222}
+    .btn:hover{filter:brightness(1.15)}
+    .btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#0b0e1a}
+    .btn.ghost{background:#0a0a0a;border:1px solid #222}
+    .pill{padding:6px 10px;border-radius:999px;background:#0f0f0f;border:1px solid #222;color:#cfcfcf;font-size:12px}
+    .results{display:grid;gap:10px;margin-top:10px;max-height:300px;overflow:auto}
+    .result{display:grid;grid-template-columns:56px 1fr;gap:10px;align-items:center;background:#121531;border:1px solid #2a2f54;border-radius:12px;padding:8px;cursor:pointer}
+    .result:hover{border-color:var(--accent)}
+    .result img{width:56px;height:56px;object-fit:cover;border-radius:8px}
+    .muted{color:#97a0e6;font-size:12px}
+    .two-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media (max-width:520px){.two-cols{grid-template-columns:1fr}}
+    .template-preview{white-space:pre-wrap;background:#0c0f1f;border:1px dashed #31407a;padding:12px;border-radius:12px}
+    .tag-suggest{display:flex;gap:8px;flex-wrap:wrap}
+    .tag{border:1px solid #38407b;background:#151a39;color:#c9d0ff;padding:6px 10px;border-radius:999px;font-size:12px}
+    .footer{opacity:.75;text-align:center;margin-top:18px;font-size:12px}
+    .coverWrap{display:flex;align-items:center;gap:10px;margin-top:10px}
+    .coverWrap img{width:64px;height:64px;object-fit:cover;border-radius:10px;border:1px solid #2a2f54}
+    .tests{margin-top:12px;border-top:1px solid #2a2f54;padding-top:10px}
+    .tests .ok{color:#79ffa8}
+    .tests .fail{color:#ff9a9a}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Episode Discussion Template Generator</h1>
+      <span class="badge">v1.4.5</span>
+    </header>
+
+    <div class="grid">
+      <!-- LEFT: Controls -->
+      <section class="card" id="left">
+        <h2>Find a Show</h2>
+        <div class="sub">Search AniList and pick a title. We’ll auto‑fill names, episode number, cover, and links. You can overwrite anything.</div>
+        <div class="row">
+          <input class="input" id="q" placeholder="Search by title (romaji / English / native)…" />
+          <button class="btn" id="btnSearch">Search</button>
+        </div>
+        <div class="results" id="results"></div>
+        <hr style="border-color:#2a2f54;border-style:solid;margin:14px 0">
+        <div class="two-cols">
+          <div>
+            <label class="muted">English Title</label>
+            <input class="input" id="titleEn" placeholder="English title" />
+          </div>
+          <div>
+            <label class="muted">Japanese / Romaji Title</label>
+            <input class="input" id="titleAlt" placeholder="日本語 or Romaji" />
+          </div>
+        </div>
+        <div class="two-cols" style="margin-top:10px">
+          <div>
+            <label class="muted">Episode #</label>
+            <input class="input" id="epNum" type="number" min="1" placeholder="2" />
+          </div>
+          <div>
+            <label class="muted">Season</label>
+            <input class="input" id="seasonLabel" placeholder="Fall 2025" />
+          </div>
+        </div>
+        <div class="two-cols" style="margin-top:10px">
+          <div>
+            <label class="muted">Series page (AniList/MAL)</label>
+            <input class="input" id="seriesUrl" placeholder="https://anilist.co/anime/..." />
+          </div>
+          <div>
+            <label class="muted">Cover image URL</label>
+            <input class="input" id="coverUrl" placeholder="https://...jpg" />
+          </div>
+        </div>
+        <div class="two-cols" style="margin-top:10px">
+          <div>
+            <label class="muted">Prev Episode Discussion URL</label>
+            <input class="input" id="prevLink" placeholder="https://..." />
+          </div>
+          <div>
+            <label class="muted">Next Episode Discussion URL</label>
+            <input class="input" id="nextLink" placeholder="https://... or TBA" />
+          </div>
+        </div>
+
+        <h2 style="margin-top:16px">Tag suggestions</h2>
+        <div class="sub">Click a tag to copy it. Always includes Anime, Episode Discussion, season tag, English & Japanese names.</div>
+        <div id="tagSuggest" class="tag-suggest"></div>
+
+        <div class="coverWrap">
+          <img id="coverPreview" src="" alt="cover preview" style="display:none" />
+          <button class="btn" id="btnCopyImage" title="Copy the cover image to clipboard">Copy Image</button>
+        </div>
+
+        <div class="row" style="margin-top:14px;justify-content:space-between">
+          <button class="btn ghost" id="btnReset">Reset</button>
+          <div class="row">
+            <button class="btn" id="btnTitle">Copy Title</button>
+            <button class="btn primary" id="btnGen">Copy Body (HTML)</button>
+          </div>
+        </div>
+        <div class="row" style="margin-top:10px; gap:8px">
+          <small id="capNotice" class="muted"></small>
+        </div>
+      </section>
+
+      <!-- RIGHT: Output -->
+      <section class="card">
+        <h2>Preview</h2>
+        <div class="sub">This preview renders the HTML that will be copied to your clipboard.</div>
+        <div class="pill" id="titlePreview" style="display:block;margin-bottom:10px;overflow:auto;white-space:nowrap"></div>
+        <div class="template-preview" id="bodyPreview">Fill the fields on the left or pick a show to see the preview…</div>
+        <div class="tests" id="tests"></div>
+        <div class="footer">Made for manual posting to DiscussAnime. Uses AniList for search and schedules. Your inputs are saved locally in your browser.</div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    // NOTE: Avoid document.write entirely to prevent parser conflicts with shorthands like $.
+    const qs = (sel) => document.querySelector(sel);
+    const api = 'https://graphql.anilist.co';
+
+    // Capability checks + notices
+    const insecure = (location.protocol !== 'https:' && location.hostname !== 'localhost');
+    const supportsClipboardText = !!(navigator.clipboard && navigator.clipboard.writeText);
+    const supportsClipboardWrite = !!(navigator.clipboard && navigator.clipboard.write);
+
+    const els = {
+      q: qs('#q'), results: qs('#results'), titleEn: qs('#titleEn'), titleAlt: qs('#titleAlt'), epNum: qs('#epNum'), seasonLabel: qs('#seasonLabel'), seriesUrl: qs('#seriesUrl'), coverUrl: qs('#coverUrl'), prevLink: qs('#prevLink'), nextLink: qs('#nextLink'), tagSuggest: qs('#tagSuggest'), titlePreview: qs('#titlePreview'), bodyPreview: qs('#bodyPreview'), coverPreview: qs('#coverPreview')
+    };
+
+    function capNote(){
+      const msg = [];
+      if (insecure) msg.push('Tip: Clipboard works best over HTTPS or localhost.');
+      if (!supportsClipboardText) msg.push('Your browser may block programmatic copy. We added fallbacks.');
+      document.getElementById('capNotice').textContent = msg.join(' ');
+    }
+
+    // Local storage
+    const save = () => {
+      const keep = ['titleEn','titleAlt','epNum','seasonLabel','seriesUrl','coverUrl','prevLink','nextLink'];
+      const data = Object.fromEntries(keep.map(k=>[k, els[k].value]));
+      localStorage.setItem('aedg-form', JSON.stringify(data));
+    };
+    const load = () => {
+      const raw = localStorage.getItem('aedg-form'); if(!raw) return; try{ const d=JSON.parse(raw); Object.entries(d).forEach(([k,v])=>{ if(els[k]) els[k].value=v; }); }catch(e){}
+    };
+
+    const SEASON_LABEL = s => ({WINTER:'Winter',SPRING:'Spring',SUMMER:'Summer',FALL:'Fall'}[s]||'');
+
+    function buildTitle(){
+      const en = els.titleEn.value.trim(); const alt = els.titleAlt.value.trim(); const ep = els.epNum.value.trim();
+      const left = en || alt || 'Unknown Title';
+      const right = alt && en && alt!==en ? ` (${alt})` : (alt && !en ? '' : (alt && ` (${alt})`));
+      return `${left} Episode ${ep || '?'} | Discussion${right || ''}`;
+    }
+
+    function rulesBlockHTML(){
+      return `<p><strong>Rules</strong></p><p>Please do not spoil any future scenes/events openly, confirm or deny theories or openly hint to something not revealed, hide them behind a spoiler. There is a spoiler tag you can use when commenting, you highlight the spoiler text and click on the eye and that will hide it.</p><p>Please do not share links to unofficial websites so we do not risk these getting taken down.</p>`;
+    }
+
+    function listsBlockHTML(){
+      const seasonText = (els.seasonLabel.value||'').trim() || 'Season List';
+      const l1 = `<a href="https://docs.google.com/spreadsheets/d/1MJkVEXrxwJtLE_0V0RFLOx3bPZKHcV82MnvIA1JrTWc/edit?usp=sharing">${seasonText} Episode Discussion List by Bobrecay</a>`;
+      const l2 = `<a href="https://disqus.com/by/disqus_58mxFUE7xv/favorites/">List of All Episode Discussion threads</a>`;
+      return `<p>${l1}<br>${l2}</p>`;
+    }
+
+    function isUrl(s){ return /^https?:\/\//i.test(s); }
+
+    function prevNextHTML(){
+      const p = els.prevLink.value.trim(); const n = els.nextLink.value.trim();
+      const prevText = 'Previous Episode Discussion';
+      const nextText = 'Next Episode Discussion';
+      const prev = isUrl(p) ? `<a href="${p}">${prevText}</a>` : prevText;
+      let next;
+      if (isUrl(n)) next = `<a href="${n}">${nextText}</a>`;
+      else if ((n||'').toLowerCase()==='tba') next = `${nextText} (TBA)`;
+      else next = nextText;
+      return `<p>${prev}</p>\n\n<p>${next}</p>`;
+    }
+
+    function buildBodyHTML(){
+      const en = els.titleEn.value.trim(); const alt = els.titleAlt.value.trim(); const ep = els.epNum.value.trim(); const cover = els.coverUrl.value.trim();
+      const header = `<p><strong>Discussion thread for Episode ${ep || '?'} of ${en || alt || 'Unknown Title'}${alt && en ? '/' + alt : ''}</strong></p>`;
+      const rules = rulesBlockHTML();
+      const links = prevNextHTML();
+      const lists = listsBlockHTML();
+      const img = cover ? `<p><img src="${cover}" alt="cover" /></p>` : '';
+      // Spacing policy: double newlines between blocks, but triple newlines before the Prev/Next links block
+      const SEP = '\n\n';
+      const TRIPLE = '\n\n\n';
+      return header + SEP + rules + TRIPLE + links + SEP + lists + SEP + img;
+    }
+
+    function updatePreview(){
+      els.titlePreview.textContent = buildTitle();
+      const body = buildBodyHTML();
+      els.bodyPreview.innerHTML = body;
+      const cu = els.coverUrl.value.trim();
+      if(cu){ els.coverPreview.src = cu; els.coverPreview.style.display='block'; } else { els.coverPreview.style.display='none'; }
+      suggestTags(); save();
+    }
+
+    function suggestTags(){
+      const season = (els.seasonLabel.value||'').trim();
+      const en=(els.titleEn.value||'').trim();
+      const jp=(els.titleAlt.value||'').trim();
+      const base=['Anime','Episode Discussion'];
+      if(season) base.push(`${season} Episode Discussion`);
+      if(en) base.push(en);
+      if(jp) base.push(jp);
+      const seen = new Set();
+      const tags = base.filter(t=>{ if(!t||seen.has(t)) return false; seen.add(t); return true; });
+      els.tagSuggest.innerHTML='';
+      tags.forEach(t=>{ const span=document.createElement('span'); span.className='tag'; span.textContent=t; span.title='Click to copy'; span.addEventListener('click',async()=>{ try{ await copyTextFallback(t);}catch(e){} span.style.borderColor='var(--accent)'; setTimeout(()=> span.style.borderColor='#38407b',500); }); els.tagSuggest.appendChild(span); });
+    }
+
+    async function searchAniList(q){
+      const query=`query($q:String){ Page(perPage:10){ media(type:ANIME, search:$q){ id siteUrl season seasonYear coverImage{large} title{romaji english native} } } }`;
+      const r=await fetch(api,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query,variables:{q}})});
+      if(!r.ok) throw new Error('AniList search failed');
+      const data=await r.json(); return (data.data?.Page?.media)||[];
+    }
+    async function fetchAirings(id){
+      const query=`query($id:Int){ Media(id:$id){ id siteUrl season seasonYear coverImage{large} title{romaji english native} airingSchedule(notYetAired:false, perPage:50){ nodes{ episode airingAt } } } }`;
+      const r=await fetch(api,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query,variables:{id}})});
+      if(!r.ok) throw new Error('AniList schedule failed');
+      const data=await r.json(); return data.data.Media;
+    }
+
+    // Copy helpers (with fallbacks)
+    function flash(btn){ const old=btn.textContent; btn.textContent='Copied!'; setTimeout(()=> btn.textContent=old, 900); }
+
+    async function copyTextFallback(text){
+      try{ if (supportsClipboardText) { await navigator.clipboard.writeText(text); return true; } }catch(e){}
+      const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.left='-9999px'; document.body.appendChild(ta); ta.focus(); ta.select();
+      let ok=false; try{ ok=document.execCommand('copy'); }catch(e){}
+      document.body.removeChild(ta); return ok;
+    }
+
+    async function copyBody(html){
+      const plain = html; // contains \n\n and \n\n\n separators
+      if (supportsClipboardWrite && window.ClipboardItem) {
+        try{
+          const item = new ClipboardItem({
+            'text/html': new Blob([html], {type:'text/html'}),
+            'text/plain': new Blob([plain], {type:'text/plain'})
+          });
+          await navigator.clipboard.write([item]);
+          return true;
+        }catch(e){ /* fall through */ }
+      }
+      return copyTextFallback(plain);
+    }
+
+    // Events
+    document.getElementById('btnSearch').addEventListener('click', async ()=>{
+      const q=els.q.value.trim(); if(!q) return; els.results.innerHTML='<div class="muted">Searching…</div>';
+      try{
+        const items=await searchAniList(q);
+        if(!items.length){ els.results.innerHTML='<div class="muted">No results.</div>'; return; }
+        els.results.innerHTML='';
+        items.forEach(m=>{
+          const div=document.createElement('div');
+          div.className='result';
+          const titleLine = m.title.english||m.title.romaji||m.title.native;
+          const seasonTxt = m.season? `${SEASON_LABEL(m.season)} ${m.seasonYear||''}`: (m.seasonYear||'');
+          div.innerHTML=`<img src="${m.coverImage.large}" alt="cover"><div><div style="font-weight:700">${titleLine}</div><div class="muted">${m.title.romaji}${seasonTxt? ' • '+seasonTxt:''}</div></div>`;
+          div.addEventListener('click', async ()=>{
+            els.results.innerHTML='<div class="muted">Loading schedule…</div>';
+            try{
+              const full=await fetchAirings(m.id);
+              els.titleEn.value=full.title.english||'';
+              els.titleAlt.value=full.title.native||full.title.romaji||'';
+              const seasonTxt2 = full.season? `${SEASON_LABEL(full.season)} ${full.seasonYear||''}`: '';
+              if (seasonTxt2) els.seasonLabel.value = seasonTxt2;
+              els.seriesUrl.value=full.siteUrl||els.seriesUrl.value;
+              els.coverUrl.value=full.coverImage?.large||els.coverUrl.value;
+              const aired=(full.airingSchedule?.nodes||[]).filter(n=> n.airingAt*1000<=Date.now());
+              const last=aired.sort((a,b)=>b.episode-a.episode)[0];
+              els.epNum.value= last? String(last.episode):els.epNum.value;
+              updatePreview();
+              els.results.innerHTML='<div class="muted">Loaded. You can edit fields on the left.</div>';
+            }catch(e){
+              els.results.innerHTML='<div class="muted">Could not load schedule. Fields left editable.</div>';
+            }
+          });
+          els.results.appendChild(div);
+        });
+      }catch(e){
+        els.results.innerHTML='<div class="muted">AniList search failed. Try again.</div>';
+      }
+    });
+
+    document.getElementById('btnGen').addEventListener('click', async ()=>{
+      const ok = await copyBody(buildBodyHTML());
+      if(!ok) alert('Copy failed. On some browsers you must be on HTTPS or interact with the page first.');
+      flash(document.getElementById('btnGen'));
+    });
+
+    document.getElementById('btnTitle').addEventListener('click', async ()=>{
+      const ok = await copyTextFallback(buildTitle());
+      if(!ok) alert('Copy failed. Try selecting and pressing Ctrl+C.');
+      flash(document.getElementById('btnTitle'));
+    });
+
+    document.getElementById('btnReset').addEventListener('click', ()=>{
+      ['titleEn','titleAlt','epNum','seasonLabel','seriesUrl','coverUrl','prevLink','nextLink'].forEach(k=> els[k].value='');
+      updatePreview();
+      localStorage.removeItem('aedg-form');
+    });
+
+    document.getElementById('btnCopyImage').addEventListener('click', async ()=>{
+      const url = els.coverUrl.value.trim(); if(!url) return;
+      try{
+        if (supportsClipboardWrite && window.ClipboardItem) {
+          const res = await fetch(url, {mode:'cors'});
+          const blob = await res.blob();
+          await navigator.clipboard.write([ new ClipboardItem({ [blob.type]: blob }) ]);
+          flash(document.getElementById('btnCopyImage'));
+          return;
+        }
+        throw new Error('No ClipboardItem support');
+      }catch(e){
+        const go = confirm('Your browser blocked image copy. Open the image in a new tab so you can right‑click → Copy Image?');
+        if (go) window.open(url, '_blank');
+      }
+    });
+
+    // --- Tests ---
+    function runTests(){
+      const out = document.getElementById('tests');
+      const cases = [];
+
+      cases.push({name:'buildBodyHTML returns string', test:()=> typeof buildBodyHTML()==='string'});
+      // Double spacing exists between paragraph blocks
+      cases.push({name:'body has double newlines', test:()=> /<\/p>\n\n<p>/.test(buildBodyHTML())});
+      // Triple spacing exists between rules and links
+      cases.push({name:'triple spacing before links', test:()=> /<\/p>\n\n\n<p>/.test(buildBodyHTML())});
+      // No quadruple spacing (guard)
+      cases.push({name:'no quadruple spacing', test:()=> !/\n\n\n\n/.test(buildBodyHTML())});
+
+      els.titleEn.value='Solo Leveling'; els.titleAlt.value='俺だけレベルアップな件'; els.epNum.value='2';
+      cases.push({name:'buildTitle formatting', test:()=> /Solo Leveling Episode 2 \| Discussion/.test(buildTitle())});
+
+      els.prevLink.value='1'; els.nextLink.value='https://example.com/3';
+      const htmlPN = prevNextHTML();
+      cases.push({name:'prev shows text without URL', test:()=> { els.prevLink.value='1'; const h=prevNextHTML(); return /<p>Previous Episode Discussion<\/p>/.test(h) && !/Previous Episode Discussion<\/a>/.test(h); }});
+      cases.push({name:'next URL hyperlinked', test:()=> /<a href=\"https:\/\/example.com\/3\">/.test(htmlPN)});
+      cases.push({name:'prevNextHTML two lines', test:()=> { const h=prevNextHTML(); return (h.match(/<p>/g)||[]).length===2; }});
+
+      const lb = listsBlockHTML();
+      cases.push({name:'lists block anchors present', test:()=> lb.includes('docs.google.com') && lb.includes('disqus.com')});
+
+      els.seasonLabel.value='Fall 2025';
+      els.titleEn.value='Solo Leveling'; els.titleAlt.value='俺だけレベルアップな件';
+      updatePreview();
+      const tags = Array.from(document.querySelectorAll('#tagSuggest .tag')).map(x=>x.textContent);
+      const req = ['Anime','Episode Discussion','Fall 2025 Episode Discussion','Solo Leveling','俺だけレベルアップな件'];
+      cases.push({name:'required tags present', test:()=> req.every(t=> tags.includes(t))});
+
+      out.innerHTML = '<h3 style="margin:8px 0">Self‑tests</h3>';
+      cases.forEach(c=>{ const ok = !!c.test(); const li=document.createElement('div'); li.className=ok?'ok':'fail'; li.textContent=`${ok?'✓':'✗'} ${c.name}`; out.appendChild(li); });
+    }
+
+    function init(){
+      capNote(); load(); updatePreview(); runTests();
+    }
+    init();
+  </script>
+</body>
+</html>
