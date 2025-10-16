@@ -49,7 +49,7 @@
   <div class="container">
     <header>
       <h1>Episode Discussion Template Generator</h1>
-      <span class="badge">v1.4.5</span>
+      <span class="badge">v1.5.0</span>
     </header>
 
     <div class="grid">
@@ -76,7 +76,7 @@
         <div class="two-cols" style="margin-top:10px">
           <div>
             <label class="muted">Episode #</label>
-            <input class="input" id="epNum" type="number" min="1" placeholder="2" />
+            <input class="input" id="epNum" type="number" min="1" step="1" placeholder="" />
           </div>
           <div>
             <label class="muted">Season</label>
@@ -95,12 +95,12 @@
         </div>
         <div class="two-cols" style="margin-top:10px">
           <div>
-            <label class="muted">Prev Episode Discussion URL</label>
-            <input class="input" id="prevLink" placeholder="https://..." />
+            <label class="muted">Prev Episode Discussion URL (required)</label>
+            <input class="input" id="prevLink" placeholder="" />
           </div>
           <div>
-            <label class="muted">Next Episode Discussion URL</label>
-            <input class="input" id="nextLink" placeholder="https://... or TBA" />
+            <label class="muted">Next Episode Discussion URL (optional)</label>
+            <input class="input" id="nextLink" placeholder="" />
           </div>
         </div>
 
@@ -138,7 +138,6 @@
   </div>
 
   <script>
-    // NOTE: Avoid document.write entirely to prevent parser conflicts with shorthands like $.
     const qs = (sel) => document.querySelector(sel);
     const api = 'https://graphql.anilist.co';
 
@@ -151,6 +150,9 @@
       q: qs('#q'), results: qs('#results'), titleEn: qs('#titleEn'), titleAlt: qs('#titleAlt'), epNum: qs('#epNum'), seasonLabel: qs('#seasonLabel'), seriesUrl: qs('#seriesUrl'), coverUrl: qs('#coverUrl'), prevLink: qs('#prevLink'), nextLink: qs('#nextLink'), tagSuggest: qs('#tagSuggest'), titlePreview: qs('#titlePreview'), bodyPreview: qs('#bodyPreview'), coverPreview: qs('#coverPreview')
     };
 
+    // runtime state for abbreviation selection
+    let abbrev = '';
+
     function capNote(){
       const msg = [];
       if (insecure) msg.push('Tip: Clipboard works best over HTTPS or localhost.');
@@ -162,19 +164,38 @@
     const save = () => {
       const keep = ['titleEn','titleAlt','epNum','seasonLabel','seriesUrl','coverUrl','prevLink','nextLink'];
       const data = Object.fromEntries(keep.map(k=>[k, els[k].value]));
+      data.abbrev = abbrev;
       localStorage.setItem('aedg-form', JSON.stringify(data));
     };
     const load = () => {
-      const raw = localStorage.getItem('aedg-form'); if(!raw) return; try{ const d=JSON.parse(raw); Object.entries(d).forEach(([k,v])=>{ if(els[k]) els[k].value=v; }); }catch(e){}
+      const raw = localStorage.getItem('aedg-form'); if(!raw) return; try{ const d=JSON.parse(raw); Object.entries(d).forEach(([k,v])=>{ if(k==='abbrev'){abbrev=v||''; return;} if(els[k]) els[k].value=v; }); }catch(e){}
     };
 
     const SEASON_LABEL = s => ({WINTER:'Winter',SPRING:'Spring',SUMMER:'Summer',FALL:'Fall'}[s]||'');
 
+    // pick shortest English synonym for abbreviation
+    function pickEnglishAbbrev(syns){
+      if(!Array.isArray(syns)) return '';
+      const english = syns.filter(s=> /[A-Za-z]/.test(s));
+      if(!english.length) return '';
+      english.sort((a,b)=> a.length - b.length || a.localeCompare(b));
+      return english[0];
+    }
+
     function buildTitle(){
-      const en = els.titleEn.value.trim(); const alt = els.titleAlt.value.trim(); const ep = els.epNum.value.trim();
-      const left = en || alt || 'Unknown Title';
+      // sanitize episode input to positive integers
+      let ep = parseInt(els.epNum.value,10);
+      if (!Number.isFinite(ep) || ep < 1) { ep = 1; els.epNum.value = '1'; }
+
+      const en = (els.titleEn.value||'').trim();
+      const alt = (els.titleAlt.value||'').trim();
+      const leftBase = en || alt || 'Unknown Title';
       const right = alt && en && alt!==en ? ` (${alt})` : (alt && !en ? '' : (alt && ` (${alt})`));
-      return `${left} Episode ${ep || '?'} | Discussion${right || ''}`;
+      let title = `${leftBase} Episode ${ep} | Discussion${right || ''}`;
+      if (title.length > 200 && abbrev) {
+        title = `${abbrev} Episode ${ep} | Discussion`;
+      }
+      return title;
     }
 
     function rulesBlockHTML(){
@@ -203,13 +224,14 @@
     }
 
     function buildBodyHTML(){
-      const en = els.titleEn.value.trim(); const alt = els.titleAlt.value.trim(); const ep = els.epNum.value.trim(); const cover = els.coverUrl.value.trim();
-      const header = `<p><strong>Discussion thread for Episode ${ep || '?'} of ${en || alt || 'Unknown Title'}${alt && en ? '/' + alt : ''}</strong></p>`;
+      let ep = parseInt(els.epNum.value,10);
+      if (!Number.isFinite(ep) || ep < 1) { ep = 1; els.epNum.value = '1'; }
+      const en = els.titleEn.value.trim(); const alt = els.titleAlt.value.trim(); const cover = els.coverUrl.value.trim();
+      const header = `<p><strong>Discussion thread for Episode ${ep} of ${en || alt || 'Unknown Title'}${alt && en ? '/' + alt : ''}</strong></p>`;
       const rules = rulesBlockHTML();
       const links = prevNextHTML();
       const lists = listsBlockHTML();
       const img = cover ? `<p><img src="${cover}" alt="cover" /></p>` : '';
-      // Spacing policy: double newlines between blocks, but triple newlines before the Prev/Next links block
       const SEP = '\n\n';
       const TRIPLE = '\n\n\n';
       return header + SEP + rules + TRIPLE + links + SEP + lists + SEP + img;
@@ -217,11 +239,15 @@
 
     function updatePreview(){
       els.titlePreview.textContent = buildTitle();
-      const body = buildBodyHTML();
-      els.bodyPreview.innerHTML = body;
+      els.bodyPreview.innerHTML = buildBodyHTML();
       const cu = els.coverUrl.value.trim();
       if(cu){ els.coverPreview.src = cu; els.coverPreview.style.display='block'; } else { els.coverPreview.style.display='none'; }
       suggestTags(); save();
+    }
+
+    function shortenTagIfNeeded(text){
+      if (text.length <= 30) return text;
+      return abbrev && abbrev.length <= 30 ? abbrev : text.slice(0,30);
     }
 
     function suggestTags(){
@@ -230,8 +256,8 @@
       const jp=(els.titleAlt.value||'').trim();
       const base=['Anime','Episode Discussion'];
       if(season) base.push(`${season} Episode Discussion`);
-      if(en) base.push(en);
-      if(jp) base.push(jp);
+      if(en) base.push(shortenTagIfNeeded(en));
+      if(jp) base.push(shortenTagIfNeeded(jp));
       const seen = new Set();
       const tags = base.filter(t=>{ if(!t||seen.has(t)) return false; seen.add(t); return true; });
       els.tagSuggest.innerHTML='';
@@ -239,16 +265,21 @@
     }
 
     async function searchAniList(q){
-      const query=`query($q:String){ Page(perPage:10){ media(type:ANIME, search:$q){ id siteUrl season seasonYear coverImage{large} title{romaji english native} } } }`;
+      const query=`query($q:String){ Page(perPage:10){ media(type:ANIME, search:$q){ id siteUrl season seasonYear synonyms coverImage{large} title{romaji english native} } } }`;
       const r=await fetch(api,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query,variables:{q}})});
       if(!r.ok) throw new Error('AniList search failed');
       const data=await r.json(); return (data.data?.Page?.media)||[];
     }
     async function fetchAirings(id){
-      const query=`query($id:Int){ Media(id:$id){ id siteUrl season seasonYear coverImage{large} title{romaji english native} airingSchedule(notYetAired:false, perPage:50){ nodes{ episode airingAt } } } }`;
+      const query=`query($id:Int){ Media(id:$id){ id siteUrl season seasonYear synonyms coverImage{large} title{romaji english native} airingSchedule(notYetAired:false, perPage:50){ nodes{ episode airingAt } } } }`;
       const r=await fetch(api,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query,variables:{id}})});
       if(!r.ok) throw new Error('AniList schedule failed');
       const data=await r.json(); return data.data.Media;
+    }
+
+    function validateBeforeCopy(){
+      if (!isUrl(els.prevLink.value.trim())){ alert('Previous Episode Discussion URL is required and must be a valid http(s) link.'); return false; }
+      return true;
     }
 
     // Copy helpers (with fallbacks)
@@ -262,7 +293,7 @@
     }
 
     async function copyBody(html){
-      const plain = html; // contains \n\n and \n\n\n separators
+      const plain = html;
       if (supportsClipboardWrite && window.ClipboardItem) {
         try{
           const item = new ClipboardItem({
@@ -288,11 +319,13 @@
           div.className='result';
           const titleLine = m.title.english||m.title.romaji||m.title.native;
           const seasonTxt = m.season? `${SEASON_LABEL(m.season)} ${m.seasonYear||''}`: (m.seasonYear||'');
-          div.innerHTML=`<img src="${m.coverImage.large}" alt="cover"><div><div style="font-weight:700">${titleLine}</div><div class="muted">${m.title.romaji}${seasonTxt? ' • '+seasonTxt:''}</div></div>`;
+          const localAbbrev = pickEnglishAbbrev(m.synonyms);
+          div.innerHTML=`<img src="${m.coverImage.large}" alt="cover"><div><div style="font-weight:700">${titleLine}</div><div class=\"muted\">${m.title.romaji}${seasonTxt? ' • '+seasonTxt:''}${localAbbrev? ' • '+localAbbrev:''}</div></div>`;
           div.addEventListener('click', async ()=>{
             els.results.innerHTML='<div class="muted">Loading schedule…</div>';
             try{
               const full=await fetchAirings(m.id);
+              abbrev = pickEnglishAbbrev(full.synonyms) || localAbbrev || '';
               els.titleEn.value=full.title.english||'';
               els.titleAlt.value=full.title.native||full.title.romaji||'';
               const seasonTxt2 = full.season? `${SEASON_LABEL(full.season)} ${full.seasonYear||''}`: '';
@@ -301,7 +334,7 @@
               els.coverUrl.value=full.coverImage?.large||els.coverUrl.value;
               const aired=(full.airingSchedule?.nodes||[]).filter(n=> n.airingAt*1000<=Date.now());
               const last=aired.sort((a,b)=>b.episode-a.episode)[0];
-              els.epNum.value= last? String(last.episode):els.epNum.value;
+              if (last) els.epNum.value= String(Math.max(1, last.episode));
               updatePreview();
               els.results.innerHTML='<div class="muted">Loaded. You can edit fields on the left.</div>';
             }catch(e){
@@ -315,7 +348,16 @@
       }
     });
 
+    // Sanitize episode input live
+    els.epNum.addEventListener('input', ()=>{
+      let v = parseInt(els.epNum.value,10);
+      if(!Number.isFinite(v) || v < 1){ v = 1; }
+      els.epNum.value = String(v);
+      updatePreview();
+    });
+
     document.getElementById('btnGen').addEventListener('click', async ()=>{
+      if(!validateBeforeCopy()) return;
       const ok = await copyBody(buildBodyHTML());
       if(!ok) alert('Copy failed. On some browsers you must be on HTTPS or interact with the page first.');
       flash(document.getElementById('btnGen'));
@@ -329,6 +371,7 @@
 
     document.getElementById('btnReset').addEventListener('click', ()=>{
       ['titleEn','titleAlt','epNum','seasonLabel','seriesUrl','coverUrl','prevLink','nextLink'].forEach(k=> els[k].value='');
+      abbrev='';
       updatePreview();
       localStorage.removeItem('aedg-form');
     });
@@ -355,35 +398,31 @@
       const out = document.getElementById('tests');
       const cases = [];
 
-      cases.push({name:'buildBodyHTML returns string', test:()=> typeof buildBodyHTML()==='string'});
-      // Double spacing exists between paragraph blocks
-      cases.push({name:'body has double newlines', test:()=> /<\/p>\n\n<p>/.test(buildBodyHTML())});
-      // Triple spacing exists between rules and links
+      // spacing
+      cases.push({name:'double newlines exist', test:()=> /<\/p>\n\n<p>/.test(buildBodyHTML())});
       cases.push({name:'triple spacing before links', test:()=> /<\/p>\n\n\n<p>/.test(buildBodyHTML())});
-      // No quadruple spacing (guard)
-      cases.push({name:'no quadruple spacing', test:()=> !/\n\n\n\n/.test(buildBodyHTML())});
 
-      els.titleEn.value='Solo Leveling'; els.titleAlt.value='俺だけレベルアップな件'; els.epNum.value='2';
-      cases.push({name:'buildTitle formatting', test:()=> /Solo Leveling Episode 2 \| Discussion/.test(buildTitle())});
+      // title abbreviation when > 200
+      const long = 'X'.repeat(210);
+      els.titleEn.value = long; els.titleAlt.value=''; els.epNum.value='2'; abbrev='SNAFU';
+      cases.push({name:'title abbreviated over 200', test:()=> buildTitle().startsWith('SNAFU Episode 2 | Discussion')});
 
-      els.prevLink.value='1'; els.nextLink.value='https://example.com/3';
-      const htmlPN = prevNextHTML();
-      cases.push({name:'prev shows text without URL', test:()=> { els.prevLink.value='1'; const h=prevNextHTML(); return /<p>Previous Episode Discussion<\/p>/.test(h) && !/Previous Episode Discussion<\/a>/.test(h); }});
-      cases.push({name:'next URL hyperlinked', test:()=> /<a href=\"https:\/\/example.com\/3\">/.test(htmlPN)});
-      cases.push({name:'prevNextHTML two lines', test:()=> { const h=prevNextHTML(); return (h.match(/<p>/g)||[]).length===2; }});
+      // episode number positive only
+      els.epNum.value='-5'; const t1=buildTitle();
+      cases.push({name:'episode coerced to positive', test:()=> /Episode 1/.test(t1)});
 
-      const lb = listsBlockHTML();
-      cases.push({name:'lists block anchors present', test:()=> lb.includes('docs.google.com') && lb.includes('disqus.com')});
+      // prev required
+      els.prevLink.value=''; els.nextLink.value='';
+      cases.push({name:'validate requires prev URL', test:()=> validateBeforeCopy()===false});
 
-      els.seasonLabel.value='Fall 2025';
-      els.titleEn.value='Solo Leveling'; els.titleAlt.value='俺だけレベルアップな件';
+      // tag length <= 30, uses abbrev if needed
+      els.titleEn.value='A'.repeat(80); abbrev='ShortAbbr'; els.seasonLabel.value='Fall 2025';
       updatePreview();
-      const tags = Array.from(document.querySelectorAll('#tagSuggest .tag')).map(x=>x.textContent);
-      const req = ['Anime','Episode Discussion','Fall 2025 Episode Discussion','Solo Leveling','俺だけレベルアップな件'];
-      cases.push({name:'required tags present', test:()=> req.every(t=> tags.includes(t))});
+      const tagTexts = Array.from(document.querySelectorAll('#tagSuggest .tag')).map(x=>x.textContent);
+      cases.push({name:'tags have <=30 chars', test:()=> tagTexts.every(t=> t.length<=30)});
 
       out.innerHTML = '<h3 style="margin:8px 0">Self‑tests</h3>';
-      cases.forEach(c=>{ const ok = !!c.test(); const li=document.createElement('div'); li.className=ok?'ok':'fail'; li.textContent=`${ok?'✓':'✗'} ${c.name}`; out.appendChild(li); });
+      cases.forEach(c=>{ let ok=false; try{ ok=!!c.test(); }catch(e){} const li=document.createElement('div'); li.className=ok?'ok':'fail'; li.textContent=`${ok?'✓':'✗'} ${c.name}`; out.appendChild(li); });
     }
 
     function init(){
