@@ -49,7 +49,7 @@
   <div class="container">
     <header>
       <h1>Episode Discussion Template Generator</h1>
-      <span class="badge">v1.5.0</span>
+      <span class="badge">v1.5.5</span>
     </header>
 
     <div class="grid">
@@ -188,10 +188,10 @@
       if (!Number.isFinite(ep) || ep < 1) { ep = 1; els.epNum.value = '1'; }
 
       const en = (els.titleEn.value||'').trim();
-      const alt = (els.titleAlt.value||'').trim();
-      const leftBase = en || alt || 'Unknown Title';
-      const right = alt && en && alt!==en ? ` (${alt})` : (alt && !en ? '' : (alt && ` (${alt})`));
-      let title = `${leftBase} Episode ${ep} | Discussion${right || ''}`;
+      // Title must include ONLY the English title (no JP/alt in parens)
+      let title = `${en || 'Unknown Title'} Episode ${ep} | Discussion`;
+
+      // If over 200 chars, switch to the shortest English synonym/abbrev
       if (title.length > 200 && abbrev) {
         title = `${abbrev} Episode ${ep} | Discussion`;
       }
@@ -406,6 +406,14 @@
       const long = 'X'.repeat(210);
       els.titleEn.value = long; els.titleAlt.value=''; els.epNum.value='2'; abbrev='SNAFU';
       cases.push({name:'title abbreviated over 200', test:()=> buildTitle().startsWith('SNAFU Episode 2 | Discussion')});
+
+      // NEW: title never includes JP even when alt is present
+      els.titleEn.value = 'My Teen Romantic Comedy SNAFU'; els.titleAlt.value='やはり俺の青春ラブコメはまちがっている。'; els.epNum.value='5'; abbrev='SNAFU';
+      const tNoJP = buildTitle();
+      cases.push({name:'title excludes JP even when alt present', test:()=> !/\(|\)/.test(tNoJP) && /^My Teen Romantic Comedy SNAFU/.test(tNoJP)});
+
+      // Reset for later tests
+      els.titleEn.value='A'.repeat(80); els.titleAlt.value=''; els.epNum.value='2'; abbrev='ShortAbbr';
 
       // episode number positive only
       els.epNum.value='-5'; const t1=buildTitle();
